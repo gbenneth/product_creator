@@ -1,0 +1,146 @@
+<html>
+  <head>
+    <title>Image Upload and Resize</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.min.css"/>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.min.js"></script>
+  </head>
+  </head>
+  <body>
+    <form action="/" method="post" enctype="multipart/form-data">
+        <input type="file" name="image" multiple=""><br>
+        <input type="submit" value="Upload">
+    </form>
+    {{project_number}}
+    <table id="image-table" class="display">
+        <thead>
+            <tr>
+                <th>Image</th>
+                <th>Filename</th>
+                <th>Item Name</th>
+                <th>Product Type</th>
+                <th>Product Style</th>
+                <th>Color</th>
+                <th>Size</th>
+                <th>SKU</th>
+                <th>Price</th>
+                <th>Tags</th>
+                <th>View</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for resized_image in resized_images %}
+                <tr>
+                    <td><img src="{{ url_for('static', filename=project_number + "/" + resized_image) }}" alt="Resized Image"></td>
+                    <td>{{ resized_image|replace("resized_image_", "") }}</td>
+                    <td contenteditable="true">Product Name</td>
+                    <td><select>
+                        <option value="SHIRT" selected>Shirt</option>
+                        <option value="SWEATSHIRT">Sweatshirt</option>
+                        <option value="PILLOW">Pillow</option>
+                    </select></td>
+                    <td><select name="product_style" multiple>
+                        <option value="Mens" selected>Mens</option>
+                        <option value="Womens">Womens</option>
+                        <option value="Kids">Kids</option>
+                    </select></td>
+                    <td><select name="color" multiple>
+                        <option value="White" selected>White</option>
+                        <option value="Black">Black</option>
+                        <option value="Red">Red</option>
+                        <option value="Blue">Blue</option>
+                    </select></td>
+                    <td><select name="size" multiple>
+                        <option value="XL" selected>Extra Large</option>
+                        <option value="L">Large</option>
+                        <option value="M">Medium</option>
+                        <option value="S">Small</option>
+                    </select></td>
+                    <td contenteditable="true">product-123</td>
+                    <td contenteditable="true">$29.99</td>
+                    <td contenteditable="true"></td>
+                    <td><select>
+                        <option value="Front" selected>front</option>
+                        <option value="Back">back</option>
+                        <option value="Front & Back">front,back</option>
+                    </select></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button id="submit_button">Submit Data</button>
+  </body>
+  <script>
+      $(document).ready(function() {
+        $('#image-table').DataTable({
+        "paging": false,
+        "ordering": false,
+        "info": false
+        });
+
+        $('#submit_button').click(function() {
+            var rows = $('#image-table tbody tr');
+            let data = {'project_num':'{{project_number}}','product_data':{}};
+            console.log(data)
+            var uniqueName = [];
+            for (var i = 0; i < rows.length; i++) {
+              var cellValue = $(rows[i]).find("td:nth-child(3)").text();
+              if ($.inArray(cellValue, uniqueName) !== -1) {
+                $(rows).filter(function() {
+                  return $(this).find("td:nth-child(3)").text() == cellValue;
+                }).find("td:nth-child(3)").css("background-color", "yellow");
+                alert("Duplicate value found: " + cellValue);
+                return;  // break the rest of the function
+              } else {
+                uniqueName.push(cellValue);
+              };
+            };
+            var table = document.getElementById("image-table");
+
+            for (var i = 1, row; row = table.rows[i]; i++) {
+                var product = {};
+                product["filename"] = $(row).find('td:nth-child(2)').text();
+                product["itemname"] = $(row).find('td:nth-child(3)').text();
+                product["template"] = $(row).find('td:nth-child(4) select').val();
+                var productStyles = Array.from($(row).find('td:nth-child(5) select').val());
+                var colors = Array.from($(row).find('td:nth-child(6) select').val());
+                var sizes = Array.from($(row).find('td:nth-child(7) select').val());
+                var sku = $(row).find('td:nth-child(8)').text();
+                var price = $(row).find('td:nth-child(9)').text();
+                product["tags"] = row.cells[9].innerHTML;
+                var view = row.cells[10].getElementsByTagName("select")[0].value;
+                product["itemoptions"] = {}
+                data['product_data'][i] = product;
+
+                productStyles.forEach(productStyle => {
+                  if (!data['product_data'][i]['itemoptions'][productStyle]) data['product_data'][i]['itemoptions'][productStyle] = {};
+
+                  colors.forEach(color => {
+                    if (!data['product_data'][i]['itemoptions'][productStyle][color]) data['product_data'][i]['itemoptions'][productStyle][color] = {};
+                    data['product_data'][i]['itemoptions'][productStyle][color] = {'view': view};
+
+                    sizes.forEach(size => {
+                      data['product_data'][i]['itemoptions'][productStyle][color][size] = {"SKU": sku, "Price": price};
+                    });
+                  });
+                });
+              }
+              console.log(data)
+            $.ajax({
+              type: 'POST',
+              url: '/results',
+              contentType: 'application/json',
+              data: JSON.stringify({'data': data}),
+              success: function(response) {
+                alert("Success");
+                $("html").empty();
+                $("html").append(response);
+              },
+              error: function(error) {
+                console.error('Error sending data to server:', error);
+              }
+            });
+          });
+      });
+  </script>
+</html>
